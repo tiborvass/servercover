@@ -1,0 +1,156 @@
+package maincover
+
+import (
+	"net/rpc"
+	"os"
+	"sync"
+	"testing"
+	"time"
+	"unsafe"
+)
+
+//go:linkname writeProfiles testing.(*M).writeProfiles
+func writeProfiles(m *testing.M)
+
+//go:linkname after testing.(*M).after
+func after(m *testing.M)
+
+//go:linkname testingCover *testing.Cover
+var testingCover *testing.Cover
+
+// Copied from testing.M
+// TODO: add tests to ensure struct is in sync with testing package.
+type _M struct {
+	deps       interface{}
+	tests      []testing.InternalTest
+	benchmarks []testing.InternalBenchmark
+	examples   []testing.InternalExample
+
+	timer     *time.Timer
+	afterOnce sync.Once
+
+	numRun int
+}
+
+var conn struct {
+	client     *rpc.Client
+	coverMutex sync.Mutex
+}
+
+type resetCoverRequest bool
+
+const (
+	resetCoverStats resetCoverRequest = true
+	keepCoverStats                    = false
+)
+
+func terminate() {
+	if conn.client != nil {
+		updateCover(resetCoverStats)
+		conn.client.Close()
+		//} else {
+		//*testingCover = testing.Cover{}
+		//testingCover.Counters = nil
+		//testingCover.Blocks = nil
+	}
+}
+
+func customAfter(m *testing.M) {
+	var newAfterOnce sync.Once
+	newAfterOnce.Do(func() {
+		terminate()
+		writeProfiles(m)
+	})
+}
+
+func updateCover(shouldResetCover resetCoverRequest) {
+	var updatedCover testing.Cover
+	if err := conn.client.Call("MainCover.GetCover", shouldResetCover, &updatedCover); err != nil {
+		panic(err)
+	}
+	conn.coverMutex.Lock()
+	defer conn.coverMutex.Unlock()
+	testing.RegisterCover(updatedCover)
+}
+
+func TestMain(m *testing.M, network, addr string) {
+	// disable m.after()
+	(*_M)(unsafe.Pointer(m)).afterOnce.Do(func() {})
+
+	var emptyCover testing.Cover
+	testing.RegisterCover(emptyCover)
+
+	var exitCode int
+
+	// closure to ensure deferred calls happen before os.Exit
+	func() {
+		// defer modified m.after()
+		defer customAfter(m)
+
+		exitChan := make(chan int)
+		go func() {
+			// run tests
+			exitChan <- m.Run()
+		}()
+
+		var err error
+		waitTime := time.Second
+		maxAttempts := 3
+		for i := 0; i < maxAttempts; i++ {
+			if err != nil {
+				time.Sleep(waitTime)
+				waitTime = waitTime << 1
+			}
+			conn.client, err = rpc.Dial(network, addr)
+		}
+		if err != nil {
+			panic(err)
+		}
+		updateCover(keepCoverStats)
+		exitCode = <-exitChan
+	}()
+	os.Exit(exitCode)
+}
+
+func Coverage() float64 {
+	updateCover(keepCoverStats)
+	return testing.Coverage()
+}
+
+/*
+func usage() {
+	fmt.Println("Usage: ./maincover <args...>")
+	os.Exit(1)
+}
+
+func main() {
+	var args []string
+	if len(os.Args) == 1 {
+		args = []string{"."}
+	} else {
+		args = os.Args[1:]
+	}
+
+	importMode := build.ImportComment
+
+	// TODO use -tags to append build tags
+	build.Default.BuildTags = build.Default.BuildTags
+
+	for _, arg := range args {
+		var (
+			pkg *build.Package
+			err error
+		)
+		if arg == "." || (len(arg) >= 2 && arg[0] == '.' && arg[1] == '/') {
+			pkg, err = build.ImportDir(arg, importMode)
+		} else {
+			pkg, err = build.Import(arg, ".", importMode)
+		}
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+		fmt.Println(pkg.GoFiles)
+	}
+}
+*/

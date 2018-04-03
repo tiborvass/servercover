@@ -1,0 +1,3 @@
+package maincover
+
+import "C"
