@@ -6,10 +6,9 @@ import (
 	"strings"
 )
 
-const testBinary = "/Users/tiborvass/go/src/github.com/tiborvass/maincover/example/program/program"
-
-func Size(a int) (string, error) {
-	cmd := exec.Command(testBinary, fmt.Sprintf("%d", a))
+func CmdSize(a int) (string, error) {
+	cmd := exec.Command(testBinary, serverSocket, fmt.Sprintf("%d", a))
+	fmt.Println("tibor", cmd)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("%d: %v: %s", a, err, out)

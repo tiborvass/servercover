@@ -77,7 +77,7 @@ func TestMain(m *testing.M, network, addr string) {
 	// disable m.after()
 	(*_M)(unsafe.Pointer(m)).afterOnce.Do(func() {})
 
-	var emptyCover testing.Cover
+	var emptyCover = testing.Cover{Mode: "set"}
 	testing.RegisterCover(emptyCover)
 
 	var exitCode int
@@ -116,41 +116,3 @@ func Coverage() float64 {
 	updateCover(keepCoverStats)
 	return testing.Coverage()
 }
-
-/*
-func usage() {
-	fmt.Println("Usage: ./maincover <args...>")
-	os.Exit(1)
-}
-
-func main() {
-	var args []string
-	if len(os.Args) == 1 {
-		args = []string{"."}
-	} else {
-		args = os.Args[1:]
-	}
-
-	importMode := build.ImportComment
-
-	// TODO use -tags to append build tags
-	build.Default.BuildTags = build.Default.BuildTags
-
-	for _, arg := range args {
-		var (
-			pkg *build.Package
-			err error
-		)
-		if arg == "." || (len(arg) >= 2 && arg[0] == '.' && arg[1] == '/') {
-			pkg, err = build.ImportDir(arg, importMode)
-		} else {
-			pkg, err = build.Import(arg, ".", importMode)
-		}
-		if err != nil {
-			log.Println(err)
-			continue
-		}
-		fmt.Println(pkg.GoFiles)
-	}
-}
-*/
