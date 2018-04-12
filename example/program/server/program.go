@@ -8,7 +8,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/tiborvass/maincover/example/program/subprogram"
+	"github.com/tiborvass/servercover/example/program/subprogram"
 
 	_ "net/rpc"
 	_ "testing"

@@ -1,4 +1,4 @@
-package maincover
+package servercover
 
 import (
 	"net/rpc"
@@ -65,7 +65,7 @@ func customAfter(m *testing.M) {
 
 func updateCover(shouldResetCover resetCoverRequest) {
 	var updatedCover testing.Cover
-	if err := conn.client.Call("MainCover.GetCover", shouldResetCover, &updatedCover); err != nil {
+	if err := conn.client.Call("ServerCover.GetCover", shouldResetCover, &updatedCover); err != nil {
 		panic(err)
 	}
 	conn.coverMutex.Lock()

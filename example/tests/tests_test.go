@@ -4,16 +4,16 @@ import (
 	"flag"
 	"testing"
 
-	"github.com/tiborvass/maincover"
+	"github.com/tiborvass/servercover"
 )
 
-var testBinary, serverSocket, maincoverSocket string
+var testBinary, serverSocket, coverSocket string
 
 func init() {
 	flag.Parse()
 	testBinary = flag.Args()[0]
 	serverSocket = flag.Args()[1]
-	maincoverSocket = flag.Args()[2]
+	coverSocket = flag.Args()[2]
 }
 
 type Test struct {
@@ -28,7 +28,7 @@ var tests = []Test{
 
 func TestMain(m *testing.M) {
 	flag.Parse()
-	maincover.TestMain(m, "unix", maincoverSocket)
+	servercover.TestMain(m, "unix", coverSocket)
 }
 
 func TestSize(t *testing.T) {

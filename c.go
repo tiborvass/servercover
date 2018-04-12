@@ -1,3 +1,3 @@
-package maincover
+package servercover
 
 import "C"

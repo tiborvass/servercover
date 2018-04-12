@@ -300,16 +300,16 @@ import (
 {{end}}{{end}}
 )
 
-type MainCover testing.Cover
+type ServerCover testing.Cover
 
-func (mc *MainCover) GetCover(shouldResetCover bool, reply *testing.Cover) error {
+func (mc *ServerCover) GetCover(shouldResetCover bool, reply *testing.Cover) error {
 	*reply = testing.Cover(*mc)
 	return nil
 }
 
 func init() {
 	// Only updated by init functions, so no need for atomicity.
-	var mainCover = &MainCover{
+	var serverCover = &ServerCover{
 		Mode: {{printf "%q" .CoverMode}},
 		Counters: make(map[string][]uint32),
 		Blocks: make(map[string][]testing.CoverBlock),
@@ -321,11 +321,11 @@ func init() {
 		if 3*len(counter) != len(pos) || len(counter) != len(numStmts) {
 			panic("coverage: mismatched sizes")
 		}
-		if mainCover.Counters[fileName] != nil {
+		if serverCover.Counters[fileName] != nil {
 			// Already registered.
 			return
 		}
-		mainCover.Counters[fileName] = counter
+		serverCover.Counters[fileName] = counter
 		block := make([]testing.CoverBlock, len(counter))
 		for i := range counter {
 			block[i] = testing.CoverBlock{
@@ -336,14 +336,14 @@ func init() {
 				Stmts: numStmts[i],
 			}
 		}
-		mainCover.Blocks[fileName] = block
+		serverCover.Blocks[fileName] = block
 	}
 	{{range $i, $p := .Cover}}
 	{{range $file, $cover := $p.Vars}}
 	coverRegisterFile({{printf "%q" $cover.File}}, {{if ne $p.PackageName "main"}}_cover{{$i}}.{{end}}{{$cover.Var}}.Count[:], {{if ne $p.PackageName "main"}}_cover{{$i}}.{{end}}{{$cover.Var}}.Pos[:], {{if ne $p.PackageName "main"}}_cover{{$i}}.{{end}}{{$cover.Var}}.NumStmt[:])
 	{{end}}
 	{{end}}
-	rpc.Register(mainCover)
+	rpc.Register(serverCover)
 	go func() {
 		ln, err := net.Listen("unix", {{printf "%q" .Socket}})
 		if err != nil {
