@@ -6,7 +6,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,14 +14,9 @@ import (
 	"text/template"
 )
 
-func fatal(arg interface{}) {
-	panic(arg)
-	log.Fatal(arg)
-}
-
-func fatalf(format string, args ...interface{}) {
-	panic(fmt.Errorf(format, args...))
-	log.Fatalf(format, args...)
+func fatal(err error) {
+	panic(err)
+	fmt.Fprintln(os.Stderr, err)
 }
 
 var errMandatoryImports = errors.New("Please import net, net/rpc and testing packages")
@@ -70,18 +64,22 @@ func writeFile(out string, c *coverage) error {
 }
 
 func main() {
-	//test.CmdTest.Run(nil, os.Args[1:])
-	//return
 	flag.Parse()
+	if err := run(); err != nil {
+		fatal(err)
+	}
+}
+
+func run() error {
 	if *socket == "" {
-		fatalf("need to specify -socket")
+		return fmt.Errorf("need to specify -socket")
 	}
 	if *coverpkg == "" {
 		*coverpkg = strings.Join(flag.Args(), ",")
 	}
 	gopath, err := exec.Command("go", "env", "GOPATH").CombinedOutput()
 	if err != nil {
-		fatal(err)
+		return err
 	}
 	if *v {
 		fmt.Printf("GOPATH=%s\n", gopath)
@@ -97,14 +95,14 @@ func main() {
 	}
 	envstr, err := cmd.CombinedOutput()
 	if err != nil {
-		fatal(string(envstr))
+		return fmt.Errorf(string(envstr))
 	}
 	if *v {
 		fmt.Println("output:", string(envstr))
 	}
 	workPrefix := []byte("WORK=")
 	if !bytes.HasPrefix(envstr, workPrefix) {
-		fatalf("Expected output to have %s prefix, instead got:\n%s", workPrefix, envstr)
+		return fmt.Errorf("Expected output to have %s prefix, instead got:\n%s", workPrefix, envstr)
 	}
 	newline := bytes.Index(envstr, []byte{'\n'})
 	if newline < 0 {
@@ -112,10 +110,14 @@ func main() {
 	}
 	cwd, err := os.Getwd()
 	if err != nil {
-		fatal(err)
+		return err
 	}
 	workdir := string(envstr[len(workPrefix):newline])
-	fmt.Printf("WORK=%s\n", workdir)
+	if *work {
+		fmt.Printf("WORK=%s\n", workdir)
+	} else {
+		defer os.RemoveAll(workdir)
+	}
 
 	c := &coverage{CoverMode: "set", Socket: *socket}
 
@@ -195,14 +197,14 @@ func main() {
 		c.Cover = append(c.Cover, coverInfo{PackageName: *packageName, ImportPath: *importPath, Vars: vars})
 		return nil
 	}); err != nil {
-		fatal(err)
+		return err
 	}
 
 	maincoverFile := filepath.Join(workdir, "b001", "000_maincover.go")
 	gofiles = append(gofiles, maincoverFile)
 
 	if err := writeFile(maincoverFile, c); err != nil {
-		fatal(err)
+		return err
 	}
 
 	importcfgMap := map[string]struct{}{}
@@ -232,7 +234,7 @@ func main() {
 		}
 		return s.Err()
 	}); err != nil {
-		fatal(err)
+		return err
 	}
 
 	var foundNet, foundNetRpc, foundTesting bool
@@ -250,14 +252,14 @@ func main() {
 		importcfgs = append(importcfgs, s)
 	}
 	if !foundNet || !foundNetRpc || !foundTesting {
-		fatal(errMandatoryImports)
+		return errMandatoryImports
 	}
 	sort.Strings(importcfgs)
 
 	importcfgPath := filepath.Join(workdir, "importcfg")
 	f, err := os.Create(importcfgPath)
 	if err != nil {
-		fatal(err)
+		return err
 	}
 	for _, cfg := range importcfgs {
 		f.Write([]byte(cfg))
@@ -273,18 +275,16 @@ func main() {
 	cmdArgs = append(cmdArgs, gofiles...)
 	out, err := exec.Command("go", cmdArgs...).CombinedOutput()
 	if err != nil {
-		fatal(string(out))
+		return fmt.Errorf(string(out))
 	}
 
-	//defer os.Chdir(cwd)
-	//os.Chdir(workdir)
 	cmd = exec.Command("go", "tool", "link", "-o", *output, "-importcfg", importcfgPath, "-buildmode=exe", filepath.Join(workdir, "b001", "_pkg_.a"))
 	if *v {
 		fmt.Println(strings.Join(cmd.Args, " "))
 	}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	cmd.Run()
+	return cmd.Run()
 }
 
 var testmainTmpl = template.Must(template.New("main").Parse(`
