@@ -5,40 +5,44 @@ import (
 	"testing"
 
 	"github.com/tiborvass/servercover"
+	"github.com/tiborvass/servercover/example/program/client"
 )
 
-var testBinary, serverSocket, coverSocket string
+var serverSocket string
+
+var coverAddr = flag.String("cover.addr", "", "Address to servercover")
 
 func init() {
 	flag.Parse()
-	testBinary = flag.Args()[0]
-	serverSocket = flag.Args()[1]
-	coverSocket = flag.Args()[2]
+	serverSocket = flag.Args()[0]
 }
 
 type Test struct {
-	in  int
+	in  string
 	out string
 }
 
 var tests = []Test{
-	{-1, "negative"},
-	{5, "small"},
+	{"-1", "negative"},
+	{"5", "small"},
 }
 
 func TestMain(m *testing.M) {
 	flag.Parse()
-	servercover.TestMain(m, "unix", coverSocket)
+	if *coverAddr == "" {
+		panic("-cover.addr is needed")
+	}
+	servercover.TestMain(m, "unix", *coverAddr)
 }
 
 func TestSize(t *testing.T) {
 	for i, test := range tests {
-		size, err := CmdSize(test.in)
+		size, err := client.Size(serverSocket, test.in)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if size != test.out {
-			t.Errorf("#%d: Size(%d)=%s; want %s", i, test.in, size, test.out)
+			t.Errorf("#%d: Size(%s)=%s; want %s", i, test.in, size, test.out)
 		}
 	}
 }

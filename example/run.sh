@@ -10,10 +10,9 @@ importpath=github.com/tiborvass/servercover
 ./clean.sh
 go get "$importpath"/cmd/servercover
 $GOPATH/bin/servercover -socket cover.sock -o server -coverpkg "$importpath"/example/program/... "$importpath"/example/program/server
-go build -o client "$importpath"/example/program/client
 
 ./server example.sock &
-go test -coverprofile cover.out "$importpath"/example/tests -- "$PWD"/client "$PWD"/example.sock "$PWD"/cover.sock
+go test -coverprofile cover.out "$importpath"/example/tests -cover.addr "$PWD"/cover.sock --  "$PWD"/example.sock
 kill -9 %1
 
 go tool cover -func=cover.out
