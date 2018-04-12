@@ -2,6 +2,9 @@
 
 set -e
 
+pushd $(dirname "$0") >/dev/null
+trap 'popd >/dev/null' EXIT
+
 importpath=github.com/tiborvass/servercover
 
 ./clean.sh
