@@ -1,21 +1,14 @@
 package main
 
 import (
-	"flag"
+	"os"
 	"testing"
 
 	"github.com/tiborvass/servercover"
 	"github.com/tiborvass/servercover/example/program/client"
 )
 
-var serverSocket string
-
-var coverAddr = flag.String("cover.addr", "", "Address to servercover")
-
-func init() {
-	flag.Parse()
-	serverSocket = flag.Args()[0]
-}
+var serverSocket = os.Getenv("EXAMPLE_SOCK")
 
 type Test struct {
 	in  string
@@ -28,11 +21,7 @@ var tests = []Test{
 }
 
 func TestMain(m *testing.M) {
-	flag.Parse()
-	if *coverAddr == "" {
-		panic("-cover.addr is needed")
-	}
-	servercover.TestMain(m, "unix", *coverAddr)
+	servercover.TestMain(m)
 }
 
 func TestSize(t *testing.T) {

@@ -1,6 +1,7 @@
 package servercover
 
 import (
+	"flag"
 	"net/rpc"
 	"os"
 	"sync"
@@ -8,6 +9,8 @@ import (
 	"time"
 	"unsafe"
 )
+
+var coverAddr = flag.String("cover.addr", "", "Address to servercover")
 
 //go:linkname writeProfiles testing.(*M).writeProfiles
 func writeProfiles(m *testing.M)
@@ -73,7 +76,18 @@ func updateCover(shouldResetCover resetCoverRequest) {
 	testing.RegisterCover(updatedCover)
 }
 
-func TestMain(m *testing.M, network, addr string) {
+// TestMain is what needs to be called from the test package's TestMain function.
+//
+//  func TestMain(m *testing.M) {
+//    servercover.TestMain(m)
+//  }
+func TestMain(m *testing.M) {
+	flag.Parse()
+	if *coverAddr == "" {
+		panic("-cover.addr is needed")
+	}
+	network, addr := "unix", *coverAddr
+
 	// disable m.after()
 	(*_M)(unsafe.Pointer(m)).afterOnce.Do(func() {})
 
